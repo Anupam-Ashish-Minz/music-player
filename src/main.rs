@@ -47,10 +47,9 @@ impl From<rodio::decoder::DecoderError> for AudioError {
 
 fn play_audio() -> Result<(), AudioError> {
     let file_list = ["assets/test.ogg", "assets/test.ogg"];
+    let (_stream, stream_handler) = OutputStream::try_default()?;
 
     for f in file_list {
-        let (_stream, stream_handler) = OutputStream::try_default()?;
-
         let file = BufReader::new(File::open(f)?);
 
         let source = Decoder::new(file)?;
