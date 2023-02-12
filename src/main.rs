@@ -165,26 +165,23 @@ fn draw_lists(list: Vec<String>) -> Result<(), std::io::Error> {
     Ok(())
 }
 
-fn get_file_list(root: PathBuf, list: &mut Vec<PathBuf>) {
-    for file in fs::read_dir(root).unwrap() {
-        let file = file.unwrap();
-        let file_type = file.file_type().unwrap();
+fn get_file_list(root: PathBuf, list: &mut Vec<String>) -> Result<(), std::io::Error> {
+    let mut rval = Ok(());
+    for file in fs::read_dir(root)? {
+        let file = file?;
+        let file_type = file.file_type()?;
         if file_type.is_file() {
-            list.push(file.path());
+            list.push(file.path().to_string_lossy().to_string());
         } else if file_type.is_dir() {
-            get_file_list(file.path(), list);
+            rval = get_file_list(file.path(), list);
         }
     }
+    return rval;
 }
 
 fn main() -> Result<(), Box<dyn Error>> {
     let mut file_list = Vec::new();
-    get_file_list(PathBuf::from("assets"), &mut file_list);
-
-    let file_list: Vec<String> = file_list
-        .iter()
-        .map(|x| x.to_str().unwrap().to_string())
-        .collect();
+    get_file_list(PathBuf::from("assets"), &mut file_list)?;
 
     draw_lists(file_list)?;
     return Ok(());
