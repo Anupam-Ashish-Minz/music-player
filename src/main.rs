@@ -63,7 +63,7 @@ impl From<rodio::decoder::DecoderError> for AudioError {
 }
 
 #[allow(dead_code)]
-fn play_audio() -> Result<(), AudioError> {
+fn play_songlist() -> Result<(), AudioError> {
     let songlist = BufReader::new(File::open("assets/songlist")?);
     let (_stream, stream_handler) = OutputStream::try_default()?;
 
@@ -79,6 +79,23 @@ fn play_audio() -> Result<(), AudioError> {
 
         sink.sleep_until_end();
     }
+
+    return Ok(());
+}
+
+fn play_audio(song_path: &str) -> Result<(), AudioError> {
+    let file = BufReader::new(File::open(song_path)?);
+
+    let (_stream, stream_handler) = OutputStream::try_default()?;
+
+    let source = Decoder::new(file)?;
+    let sink = Sink::try_new(&stream_handler)?;
+
+    sink.append(source);
+
+    println!("playing song {}", song_path);
+
+    sink.sleep_until_end();
 
     return Ok(());
 }
@@ -147,6 +164,11 @@ fn draw_lists(list: Vec<String>) -> Result<(), std::io::Error> {
                         // unselect
                         selection_i = None;
                         list_state.select(selection_i);
+                    }
+                    KeyCode::Enter => {
+                        if let Some(song_index) = selection_i {
+                            play_audio(&list[song_index]).unwrap();
+                        }
                     }
                     _ => {}
                 }
