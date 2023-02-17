@@ -204,13 +204,16 @@ fn get_file_list(root: PathBuf, list: &mut Vec<String>) -> Result<(), std::io::E
 
 #[derive(Parser, Debug)]
 #[command(author, version)]
-struct Args {}
+struct Args {
+    #[arg(short, long, default_value_t = String::from("assets"))]
+    path: String,
+}
 
 fn main() -> Result<(), Box<dyn Error>> {
-    Args::parse();
+    let args = Args::parse();
 
     let mut file_list = Vec::new();
-    get_file_list(PathBuf::from("assets"), &mut file_list)?;
+    get_file_list(PathBuf::from(&args.path[..]), &mut file_list)?;
 
     draw_lists(file_list)?;
 
