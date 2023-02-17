@@ -93,6 +93,7 @@ fn play_audio(song_path: &str) -> Result<(), AudioError> {
     let sink = Sink::try_new(&stream_handler)?;
 
     sink.append(source);
+    sink.set_volume(0.15);
 
     println!("playing song {}", song_path);
 
