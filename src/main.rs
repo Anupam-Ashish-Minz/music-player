@@ -1,3 +1,4 @@
+use clap::Parser;
 use crossterm::{
     event::{self, DisableMouseCapture, EnableMouseCapture, Event, KeyCode},
     execute,
@@ -201,10 +202,17 @@ fn get_file_list(root: PathBuf, list: &mut Vec<String>) -> Result<(), std::io::E
     return rval;
 }
 
+#[derive(Parser, Debug)]
+#[command(author, version)]
+struct Args {}
+
 fn main() -> Result<(), Box<dyn Error>> {
+    Args::parse();
+
     let mut file_list = Vec::new();
     get_file_list(PathBuf::from("assets"), &mut file_list)?;
 
     draw_lists(file_list)?;
+
     return Ok(());
 }
