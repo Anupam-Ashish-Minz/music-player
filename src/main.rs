@@ -84,26 +84,15 @@ fn play_songlist() -> Result<(), AudioError> {
     return Ok(());
 }
 
-fn play_audio(song_path: &str) -> Result<(), AudioError> {
-    let file = BufReader::new(File::open(song_path)?);
-
-    let (_stream, stream_handler) = OutputStream::try_default()?;
-
+fn play_audio(sink: &Sink, file_name: &str) -> Result<(), AudioError> {
+    let file = BufReader::new(File::open(file_name)?);
     let source = Decoder::new(file)?;
-    let sink = Sink::try_new(&stream_handler)?;
-
     sink.append(source);
-    sink.set_volume(0.15);
-
-    println!("playing song {}", song_path);
-
-    sink.sleep_until_end();
 
     return Ok(());
 }
 
-#[allow(dead_code)]
-fn draw_lists(list: Vec<String>) -> Result<(), std::io::Error> {
+fn draw_lists(list: Vec<String>) -> Result<(), AudioError> {
     let list_items: Vec<_> = list.iter().map(|x| ListItem::new(&x[..])).collect();
     let mut list_state = ListState::default();
     let mut selection_i: Option<usize> = None;
@@ -114,6 +103,11 @@ fn draw_lists(list: Vec<String>) -> Result<(), std::io::Error> {
     execute!(stdout, EnterAlternateScreen, EnableMouseCapture)?;
     let backend = CrosstermBackend::new(stdout);
     let mut terminal = Terminal::new(backend)?;
+
+    let (_stream, stream_handler) = OutputStream::try_default()?;
+
+    let sink = Sink::try_new(&stream_handler)?;
+    sink.set_volume(0.25);
 
     loop {
         thread::sleep(Duration::from_millis(15));
@@ -128,10 +122,13 @@ fn draw_lists(list: Vec<String>) -> Result<(), std::io::Error> {
 
             f.render_stateful_widget(list, size, &mut list_state);
         })?;
+
         if crossterm::event::poll(Duration::from_millis(300))? {
             if let Event::Key(key) = event::read()? {
                 match key.code {
-                    KeyCode::Char('q') => break,
+                    KeyCode::Char('q') => {
+                        break;
+                    }
                     KeyCode::Char('j') => {
                         // move to next item in list
                         if let Some(i) = selection_i {
@@ -169,7 +166,7 @@ fn draw_lists(list: Vec<String>) -> Result<(), std::io::Error> {
                     }
                     KeyCode::Enter => {
                         if let Some(song_index) = selection_i {
-                            play_audio(&list[song_index]).unwrap();
+                            play_audio(&sink, &list[song_index])?;
                         }
                     }
                     _ => {}
