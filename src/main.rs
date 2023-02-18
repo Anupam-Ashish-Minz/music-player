@@ -63,27 +63,6 @@ impl From<rodio::decoder::DecoderError> for AudioError {
     }
 }
 
-#[allow(dead_code)]
-fn play_songlist() -> Result<(), AudioError> {
-    let songlist = BufReader::new(File::open("assets/songlist")?);
-    let (_stream, stream_handler) = OutputStream::try_default()?;
-
-    for (i, f) in songlist.lines().enumerate() {
-        let file = BufReader::new(File::open(f?)?);
-
-        let source = Decoder::new(file)?;
-        let sink = Sink::try_new(&stream_handler)?;
-
-        sink.append(source);
-
-        println!("playing song {}", i + 1);
-
-        sink.sleep_until_end();
-    }
-
-    return Ok(());
-}
-
 fn play_audio(sink: &Sink, file_name: &str) -> Result<(), AudioError> {
     let file = BufReader::new(File::open(file_name)?);
     let source = Decoder::new(file)?;
