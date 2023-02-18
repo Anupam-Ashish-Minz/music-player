@@ -8,7 +8,7 @@ use rodio::{Decoder, OutputStream, PlayError, Sink, StreamError};
 use std::{
     error::Error,
     fs::{self, File},
-    io::{BufRead, BufReader},
+    io::BufReader,
     path::PathBuf,
     thread,
     time::Duration,
