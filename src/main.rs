@@ -67,6 +67,7 @@ fn play_audio(sink: &Sink, file_name: &str) -> Result<(), AudioError> {
     let file = BufReader::new(File::open(file_name)?);
     let source = Decoder::new(file)?;
     sink.append(source);
+    sink.play();
 
     return Ok(());
 }
@@ -85,7 +86,9 @@ fn draw_lists(list: Vec<String>) -> Result<(), AudioError> {
 
     let (_stream, stream_handler) = OutputStream::try_default()?;
 
-    let sink = Sink::try_new(&stream_handler)?;
+    // this is just a placeholder the sink is overridden when the song is to
+    // be played that is during the Enter event
+    let mut sink = Sink::try_new(&stream_handler)?;
     sink.set_volume(0.25);
 
     loop {
@@ -138,13 +141,26 @@ fn draw_lists(list: Vec<String>) -> Result<(), AudioError> {
                         selection_i = Some(list_items.len() - 1);
                         list_state.select(selection_i);
                     }
-                    KeyCode::Esc | KeyCode::Char('x') => {
+                    KeyCode::Char('c') => {
+                        if sink.is_paused() {
+                            sink.play();
+                        } else {
+                            sink.pause();
+                        }
+                    }
+                    KeyCode::Char('x') => {
+                        sink.stop();
+                    }
+                    KeyCode::Esc => {
                         // unselect
                         selection_i = None;
                         list_state.select(selection_i);
                     }
                     KeyCode::Enter => {
                         if let Some(song_index) = selection_i {
+                            sink.stop();
+                            sink = Sink::try_new(&stream_handler)?;
+                            sink.set_volume(0.25);
                             play_audio(&sink, &list[song_index])?;
                         }
                     }
