@@ -4,7 +4,7 @@ use crossterm::{
     execute,
     terminal::{disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen},
 };
-use rodio::{Decoder, OutputStream, PlayError, Sink, StreamError};
+use rodio::{Decoder, OutputStream, OutputStreamHandle, PlayError, Sink, StreamError};
 use std::{
     error::Error,
     fs::{self, File},
@@ -63,13 +63,10 @@ impl From<rodio::decoder::DecoderError> for AudioError {
     }
 }
 
-fn play_audio(sink: &Sink, file_name: &str) -> Result<(), AudioError> {
-    let file = BufReader::new(File::open(file_name)?);
-    let source = Decoder::new(file)?;
+fn play_audio(sink: &Sink, source: Decoder<BufReader<File>>) {
+    sink.stop();
     sink.append(source);
     sink.play();
-
-    return Ok(());
 }
 
 fn draw_lists(list: Vec<String>) -> Result<(), AudioError> {
@@ -86,10 +83,12 @@ fn draw_lists(list: Vec<String>) -> Result<(), AudioError> {
 
     let (_stream, stream_handler) = OutputStream::try_default()?;
 
+    let volume = 1.0;
+
     // this is just a placeholder the sink is overridden when the song is to
     // be played that is during the Enter event
-    let mut sink = Sink::try_new(&stream_handler)?;
-    sink.set_volume(0.25);
+    let sink = Sink::try_new(&stream_handler)?;
+    sink.set_volume(volume);
 
     loop {
         thread::sleep(Duration::from_millis(15));
@@ -141,12 +140,12 @@ fn draw_lists(list: Vec<String>) -> Result<(), AudioError> {
                         selection_i = Some(list_items.len() - 1);
                         list_state.select(selection_i);
                     }
-					KeyCode::Char('l') => {
-						// go back 10s
-					}
-					KeyCode::Char('r') => {
-						// move forawrd 10s
-					}
+                    KeyCode::Char('h') => {
+                        // go back 10s
+                    }
+                    KeyCode::Char('l') => {
+                        // move forawrd 10s
+                    }
                     KeyCode::Char('c') => {
                         if sink.is_paused() {
                             sink.play();
@@ -164,10 +163,10 @@ fn draw_lists(list: Vec<String>) -> Result<(), AudioError> {
                     }
                     KeyCode::Enter => {
                         if let Some(song_index) = selection_i {
-                            sink.stop();
-                            sink = Sink::try_new(&stream_handler)?;
-                            sink.set_volume(0.25);
-                            play_audio(&sink, &list[song_index])?;
+                            let file_name = &list[song_index];
+                            let file = BufReader::new(File::open(file_name)?);
+                            let source = Decoder::new(file)?;
+                            play_audio(&sink, source);
                         }
                     }
                     _ => {}
