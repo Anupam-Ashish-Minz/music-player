@@ -72,10 +72,78 @@ fn play_audio(sink: &Sink, source: Decoder<BufReader<File>>) {
     sink.play();
 }
 
+fn handle_event(
+    list_state: &mut ListState,
+    list_len: usize,
+    list: &Vec<String>,
+    sink: &Sink,
+) -> Result<()> {
+    if let Event::Key(key) = event::read()? {
+        match key.code {
+            KeyCode::Char('q') => return Err(anyhow!("quit")),
+            KeyCode::Char('j') => {
+                // move to next item in list
+                if let Some(i) = list_state.selected() {
+                    if i + 1 < list_len {
+                        list_state.select(Some(i + 1));
+                    }
+                } else {
+                    list_state.select(Some(0));
+                }
+            }
+            KeyCode::Char('k') => {
+                if let Some(i) = list_state.selected() {
+                    if i > 0 {
+                        list_state.select(Some(i - 1));
+                    }
+                }
+            }
+            KeyCode::Char('g') => {
+                // move to top of the list
+                list_state.select(Some(0));
+            }
+            KeyCode::Char('G') => {
+                // move to bottom of the list
+                list_state.select(Some(list_len - 1));
+            }
+            KeyCode::Char('h') => {
+                // go back 10s
+            }
+            KeyCode::Char('l') => {
+                // move forawrd 10s
+            }
+            KeyCode::Char('c') => {
+                if sink.is_paused() {
+                    sink.play();
+                } else {
+                    sink.pause();
+                }
+            }
+            KeyCode::Char('x') => {
+                sink.stop();
+            }
+            KeyCode::Esc => {
+                // unselect
+                list_state.select(None);
+            }
+            KeyCode::Enter => {
+                if let Some(i) = list_state.selected() {
+                    let file_name = &list[i];
+                    let file = BufReader::new(File::open(file_name)?);
+                    let source = Decoder::new(file)?;
+                    play_audio(&sink, source);
+                }
+            }
+            _ => {}
+        }
+    }
+
+    Ok(())
+}
+
 fn draw_lists(list: Vec<String>) -> Result<(), AudioError> {
     let list_items: Vec<_> = list.iter().map(|x| ListItem::new(&x[..])).collect();
     let mut list_state = ListState::default();
-    let mut sel_i: i32 = -1; // selected index in ui
 
     enable_raw_mode()?;
 
@@ -93,7 +161,7 @@ fn draw_lists(list: Vec<String>) -> Result<(), AudioError> {
     let sink = Sink::try_new(&stream_handler)?;
     sink.set_volume(volume);
 
-    let list_len = list_items.len();
+    let list_len = list.len();
 
     loop {
         thread::sleep(Duration::from_millis(15));
@@ -110,62 +178,11 @@ fn draw_lists(list: Vec<String>) -> Result<(), AudioError> {
         })?;
 
         if crossterm::event::poll(Duration::from_millis(300))? {
-            if let Event::Key(key) = event::read()? {
-                match key.code {
-                    KeyCode::Char('q') => break,
-                    KeyCode::Char('j') => {
-                        // move to next item in list
-                        if sel_i < list_len as i32 - 1 {
-                            sel_i += 1;
-                        }
-                        list_state.select(sel_i.try_into().ok());
-                    }
-                    KeyCode::Char('k') => {
-                        if sel_i > 0 {
-                            sel_i -= 1;
-                        }
-                        list_state.select(sel_i.try_into().ok());
-                    }
-                    KeyCode::Char('g') => {
-                        // move to top of the list
-                        sel_i = 0;
-                        list_state.select(sel_i.try_into().ok());
-                    }
-                    KeyCode::Char('G') => {
-                        // move to bottom of the list
-                        sel_i = list_len as i32 - 1;
-                        list_state.select(sel_i.try_into().ok());
-                    }
-                    KeyCode::Char('h') => {
-                        // go back 10s
-                    }
-                    KeyCode::Char('l') => {
-                        // move forawrd 10s
-                    }
-                    KeyCode::Char('c') => {
-                        if sink.is_paused() {
-                            sink.play();
-                        } else {
-                            sink.pause();
-                        }
-                    }
-                    KeyCode::Char('x') => {
-                        sink.stop();
-                    }
-                    KeyCode::Esc => {
-                        // unselect
-                        sel_i = -1;
-                        list_state.select(None);
-                    }
-                    KeyCode::Enter => {
-                        if sel_i >= 0 {
-                            let file_name = &list[sel_i as usize];
-                            let file = BufReader::new(File::open(file_name)?);
-                            let source = Decoder::new(file)?;
-                            play_audio(&sink, source);
-                        }
-                    }
-                    _ => {}
+            match handle_event(&mut list_state, list_len, &list, &sink) {
+                Ok(_) => {}
+                Err(e) => {
+                    println!("{:?}", e);
+                    break;
                 }
             }
         }
