@@ -1,3 +1,4 @@
+use anyhow::{anyhow, Result};
 use clap::Parser;
 use crossterm::{
     event::{self, DisableMouseCapture, EnableMouseCapture, Event, KeyCode},
@@ -22,6 +23,7 @@ use tui::{
 
 #[derive(Debug)]
 enum AudioError {
+    UnknownError,
     IOError(std::io::Error),
     PlayError(PlayError),
     StreamError(StreamError),
@@ -32,6 +34,7 @@ impl std::error::Error for AudioError {}
 impl std::fmt::Display for AudioError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
+            AudioError::UnknownError => write!(f, "unknown error"),
             AudioError::IOError(err) => write!(f, "{}", err),
             AudioError::PlayError(err) => write!(f, "{}", err),
             AudioError::StreamError(err) => write!(f, "{}", err),
@@ -72,7 +75,7 @@ fn play_audio(sink: &Sink, source: Decoder<BufReader<File>>) {
 fn draw_lists(list: Vec<String>) -> Result<(), AudioError> {
     let list_items: Vec<_> = list.iter().map(|x| ListItem::new(&x[..])).collect();
     let mut list_state = ListState::default();
-    let mut selection_i: Option<usize> = None;
+    let mut sel_i: i32 = -1; // selected index in ui
 
     enable_raw_mode()?;
 
@@ -89,6 +92,8 @@ fn draw_lists(list: Vec<String>) -> Result<(), AudioError> {
     // be played that is during the Enter event
     let sink = Sink::try_new(&stream_handler)?;
     sink.set_volume(volume);
+
+    let list_len = list_items.len();
 
     loop {
         thread::sleep(Duration::from_millis(15));
@@ -107,38 +112,29 @@ fn draw_lists(list: Vec<String>) -> Result<(), AudioError> {
         if crossterm::event::poll(Duration::from_millis(300))? {
             if let Event::Key(key) = event::read()? {
                 match key.code {
-                    KeyCode::Char('q') => {
-                        break;
-                    }
+                    KeyCode::Char('q') => break,
                     KeyCode::Char('j') => {
                         // move to next item in list
-                        if let Some(i) = selection_i {
-                            if i < list_items.len() - 1 {
-                                selection_i = Some(i + 1);
-                            }
-                        } else {
-                            selection_i = Some(0);
+                        if sel_i < list_len as i32 - 1 {
+                            sel_i += 1;
                         }
-                        list_state.select(selection_i);
+                        list_state.select(sel_i.try_into().ok());
                     }
                     KeyCode::Char('k') => {
-                        // move to prev item in list
-                        if let Some(i) = selection_i {
-                            if i > 0 {
-                                selection_i = Some(i - 1);
-                            }
+                        if sel_i > 0 {
+                            sel_i -= 1;
                         }
-                        list_state.select(selection_i);
+                        list_state.select(sel_i.try_into().ok());
                     }
                     KeyCode::Char('g') => {
                         // move to top of the list
-                        selection_i = Some(0);
-                        list_state.select(selection_i);
+                        sel_i = 0;
+                        list_state.select(sel_i.try_into().ok());
                     }
                     KeyCode::Char('G') => {
                         // move to bottom of the list
-                        selection_i = Some(list_items.len() - 1);
-                        list_state.select(selection_i);
+                        sel_i = list_len as i32 - 1;
+                        list_state.select(sel_i.try_into().ok());
                     }
                     KeyCode::Char('h') => {
                         // go back 10s
@@ -158,12 +154,12 @@ fn draw_lists(list: Vec<String>) -> Result<(), AudioError> {
                     }
                     KeyCode::Esc => {
                         // unselect
-                        selection_i = None;
-                        list_state.select(selection_i);
+                        sel_i = -1;
+                        list_state.select(None);
                     }
                     KeyCode::Enter => {
-                        if let Some(song_index) = selection_i {
-                            let file_name = &list[song_index];
+                        if sel_i >= 0 {
+                            let file_name = &list[sel_i as usize];
                             let file = BufReader::new(File::open(file_name)?);
                             let source = Decoder::new(file)?;
                             play_audio(&sink, source);
