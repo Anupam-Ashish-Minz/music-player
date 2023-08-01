@@ -1,8 +1,8 @@
 use anyhow::{anyhow, Result};
 
 use crossterm::event::{self, Event, KeyCode};
-use rodio::{Decoder, Sink};
-use std::{fs::File, io::BufReader};
+use rodio::{Decoder, Sink, Source};
+use std::{fs::File, io::BufReader, time::Duration};
 use tui::widgets::ListState;
 
 pub fn handle_event(
@@ -44,6 +44,17 @@ pub fn handle_event(
             }
             KeyCode::Char('l') => {
                 // move forward 10s
+                if !sink.empty() {
+                    if let Some(i) = list_state.selected() {
+                        let open_file = &list[i];
+                        let file = BufReader::new(File::open(open_file)?);
+                        let source = Decoder::new(file)?;
+                        let source = source.skip_duration(Duration::new(14, 0));
+                        sink.stop();
+                        sink.append(source);
+                        sink.play();
+                    }
+                }
             }
             KeyCode::Char('c') => {
                 if sink.is_paused() {
@@ -61,8 +72,8 @@ pub fn handle_event(
             }
             KeyCode::Enter => {
                 if let Some(i) = list_state.selected() {
-                    let file_name = &list[i];
-                    let file = BufReader::new(File::open(file_name)?);
+                    let open_file = &list[i];
+                    let file = BufReader::new(File::open(open_file)?);
                     let source = Decoder::new(file)?;
                     sink.stop();
                     sink.append(source);
