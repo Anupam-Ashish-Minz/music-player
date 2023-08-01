@@ -1,5 +1,4 @@
-use rodio::{Decoder, PlayError, Sink, StreamError};
-use std::{fs::File, io::BufReader};
+use rodio::{PlayError, StreamError};
 
 #[derive(Debug)]
 pub enum AudioError {
@@ -42,10 +41,4 @@ impl From<rodio::decoder::DecoderError> for AudioError {
     fn from(err: rodio::decoder::DecoderError) -> Self {
         AudioError::PlayError(PlayError::DecoderError(err))
     }
-}
-
-pub fn play_audio(sink: &Sink, source: Decoder<BufReader<File>>) {
-    sink.stop();
-    sink.append(source);
-    sink.play();
 }

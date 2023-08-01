@@ -1,6 +1,5 @@
 use anyhow::{anyhow, Result};
 
-use super::playback::play_audio;
 use crossterm::event::{self, Event, KeyCode};
 use rodio::{Decoder, Sink};
 use std::{fs::File, io::BufReader};
@@ -44,7 +43,7 @@ pub fn handle_event(
                 // go back 10s
             }
             KeyCode::Char('l') => {
-                // move forawrd 10s
+                // move forward 10s
             }
             KeyCode::Char('c') => {
                 if sink.is_paused() {
@@ -65,7 +64,9 @@ pub fn handle_event(
                     let file_name = &list[i];
                     let file = BufReader::new(File::open(file_name)?);
                     let source = Decoder::new(file)?;
-                    play_audio(&sink, source);
+                    sink.stop();
+                    sink.append(source);
+                    sink.play();
                 }
             }
             _ => {}
